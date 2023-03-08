@@ -54,19 +54,45 @@ def main(mytimer: func.TimerRequest) -> None:
     # Slack API で発言データを取得する
     channel_ids = [channel['id'] for channel in channels]
     messages = []
+    replies = []
     for channel_id in channel_ids:
         conv_url = 'https://slack.com/api/conversations.history'
         data = {
             'channel': channel_id,
             'limit': 1000,
-            "oldest": start_timestamp,
+            # "oldest": start_timestamp,
             "latest": end_timestamp,
             "inclusive": True
         }
         conv_res = requests.post(conv_url, headers=headers, data=data)
         conv_res.raise_for_status()
         conv_data = conv_res.json()
-        messages += conv_data['messages']
+
+        # スレッド自体の投稿が一日以内だった場合、jsonにメッセージを追加
+        get_messages = conv_data['messages']
+        extract_messages = [
+            message for message in get_messages if start_timestamp <= int(float(message['ts']))]
+        messages += extract_messages
+
+        # スレッドのラストリプライが一日以内だった場合、当該リプライを追加
+        for message in get_messages:
+            try:
+                if start_timestamp <= int(float(message['latest_reply'])):
+                    rep_url = 'https://slack.com/api/conversations.replies'
+                    rep_data = {
+                        'channel': channel_id,
+                        'ts': message['ts'],
+                        'limit': 1000,
+                        "oldest": start_timestamp,
+                        "latest": end_timestamp,
+                        "inclusive": True
+                    }
+                    rep_res = requests.post(
+                        rep_url, headers=headers, data=rep_data)
+                    replies_data = rep_res.json()['messages'][1:]
+                    replies += replies_data
+            except:
+                pass
     # endregion
 
     # region DataLakeへの保存
@@ -84,7 +110,8 @@ def main(mytimer: func.TimerRequest) -> None:
         container_name, directory_name, metadata=None, permissions=None, umask=None)
     file_path = directory_name + file_name
     file_client = file_system_client.get_file_client(container_name, file_path)
-    data = {'users': users, 'channels': channels, 'messages': messages}
+    data = {'users': users, 'channels': channels,
+            'messages': messages, 'replies': replies}
     data_json = json.dumps(data)
     file_client.upload_data(data_json, overwrite=True)
     # endregion
