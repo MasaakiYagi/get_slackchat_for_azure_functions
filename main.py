@@ -51,7 +51,7 @@ def main(mytimer: func.TimerRequest) -> None:
     conv_list_data = conv_list_res.json()
     channels = conv_list_data['channels']
 
-    # Slack API で発言データを取得する
+    # Slack API でスレッドトップデータを取得する
     channel_ids = [channel['id'] for channel in channels]
     messages = []
     replies = []
