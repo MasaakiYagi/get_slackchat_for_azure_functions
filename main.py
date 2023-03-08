@@ -51,7 +51,7 @@ def main(mytimer: func.TimerRequest) -> None:
     conv_list_data = conv_list_res.json()
     channels = conv_list_data['channels']
 
-    # Slack API でスレッドトップデータを取得する
+    # Slack API で発言データを取得する
     channel_ids = [channel['id'] for channel in channels]
     messages = []
     replies = []
@@ -72,6 +72,8 @@ def main(mytimer: func.TimerRequest) -> None:
         get_messages = conv_data['messages']
         extract_messages = [
             message for message in get_messages if start_timestamp <= int(float(message['ts']))]
+        for extract_message in extract_messages:
+            extract_message['channel'] = channel_id
         messages += extract_messages
 
         # スレッドのラストリプライが一日以内だった場合、当該リプライを追加
@@ -90,6 +92,8 @@ def main(mytimer: func.TimerRequest) -> None:
                     rep_res = requests.post(
                         rep_url, headers=headers, data=rep_data)
                     replies_data = rep_res.json()['messages'][1:]
+                    for replies_single_data in replies_data:
+                        replies_single_data['channel'] = channel_id
                     replies += replies_data
             except:
                 pass
